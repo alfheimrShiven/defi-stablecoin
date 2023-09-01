@@ -3,8 +3,8 @@
 // Layout of Contract:
 // version
 // imports
-// errors
 // interfaces, libraries, contracts
+// errors
 // Type declarations
 // State variables
 // Events
@@ -27,12 +27,22 @@ pragma solidity ^0.8.18;
 import {ERC20Burnable, ERC20} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-// errors
-error DecentralisedStableCoin__NotZeroAddress();
-error DecentralisedStableCoin__AmountMustBeMoreThanZero();
-error DecentralisedStableCoin__BurnAmountExceedsBalance();
+/*
+ * @title Decentralised Stable Coin
+ * @author Shivendra Singh
+ * Collateral: Exogenous
+ * Collateral Type: Crypto (BTC / ETH)
+ * Minting: Decentralised (Algorithmic)
+ * Value (Relative Stability): Anchored (Pegged to USD)
+ * @notice: This contract (stable coin) is meant to be owned by the DSC Engine contract. This is an ERC20 token which is minted & burned by DSC Engine.
+ */
 
 contract DecentralizedStableCoin is ERC20Burnable, Ownable {
+    // errors
+    error DecentralisedStableCoin__NotZeroAddress();
+    error DecentralisedStableCoin__AmountMustBeMoreThanZero();
+    error DecentralisedStableCoin__BurnAmountExceedsBalance();
+
     constructor() ERC20("DecentralizedStableCoin", "DSC") {}
 
     function mint(
