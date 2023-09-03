@@ -45,6 +45,7 @@ pragma solidity ^0.8.18;
 import {DecentralizedStableCoin} from "./DecentralizedStableCoin.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 contract DSCEngine is ReentrancyGuard {
     //////////////////////
@@ -54,6 +55,8 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine__TokenAddressesAndPriceFeedAddressesLengthDontMatch();
     error DSCEngine__TokenNotAllowed(address token);
     error DSCEngine__TransferFailed();
+    error DSCEngine__BreaksHealthFactor(uint256 userHealthFactor);
+    error DSCEngine__MintFailed();
 
     ///////////////////
     // State Variables
@@ -62,13 +65,22 @@ contract DSCEngine is ReentrancyGuard {
     mapping(address collateralToken => address priceFeed) private s_priceFeeds;
     mapping(address user => mapping(address token => uint256 amount))
         private s_collateralDeposited;
+    mapping(address user => uint256 dscMinted) private s_DSCMinted;
+    uint256 public constant MIN_HEALTH_FACTOR = 1;
+    uint256 public constant ADDITIONAL_FEED_PRECISION = 1e10;
+    uint256 public constant PRECISION = 1e18;
+    uint256 public constant LIQUIDATION_THRESHOLD = 50;
+    address[] private s_collateralTokens;
 
     ///////////////////
     //// Events ////
     ///////////////////
 
-    event CollateralDeposited(address indexed user, address indexed token, uint256 indexed amount);
-
+    event CollateralDeposited(
+        address indexed user,
+        address indexed token,
+        uint256 indexed amount
+    );
 
     //////////////////////
     //// MODIFIERS //////
@@ -87,9 +99,9 @@ contract DSCEngine is ReentrancyGuard {
         _;
     }
 
-    ///////////////////
-    /// Functions  ////
-    ///////////////////
+    ///////////////////////////
+    /// External Functions ///
+    //////////////////////////
 
     constructor(
         address[] memory tokenAddresses,
@@ -102,6 +114,7 @@ contract DSCEngine is ReentrancyGuard {
 
         for (uint256 i = 0; i < tokenAddresses.length; i++) {
             s_priceFeeds[tokenAddresses[i]] = priceFeedAddresses[i];
+            s_collateralTokens[i] = tokenAddresses[i];
         }
 
         i_dsc = DecentralizedStableCoin(dscAddress);
@@ -126,22 +139,108 @@ contract DSCEngine is ReentrancyGuard {
         ] += amountCollateral;
 
         // emit event
-        emit CollateralDeposited(msg.sender, tokenCollateralAddress, amountCollateral);
+        emit CollateralDeposited(
+            msg.sender,
+            tokenCollateralAddress,
+            amountCollateral
+        );
 
         // make the transfer
-        bool success = IERC20(tokenCollateralAddress).transferFrom(msg.sender, address(this), amountCollateral);
-        if(!success) {
+        bool success = IERC20(tokenCollateralAddress).transferFrom(
+            msg.sender,
+            address(this),
+            amountCollateral
+        );
+        if (!success) {
             revert DSCEngine__TransferFailed();
         }
     }
 
     function redeemCollateral() external {}
 
-    function mintDSC() external {}
+    function mintDSC(
+        uint256 amountDscToMint
+    ) external moreThanZero(amountDscToMint) {
+        s_DSCMinted[msg.sender] += amountDscToMint;
+
+        // Check if Collateral value is more than DSC value
+        /*
+         * Function call chain:
+         * mintDSC(amountDscToMint)
+         * revertIfHealthCheckIsBroken(msg.sender)
+         * _healthFactor(user)
+         * getAccountCollateralValueInUsd(user)
+         * _getUsdValue(address token, uint256 amount)
+         */
+        _revertIfHealthCheckIsBroken(msg.sender);
+
+        // its time to mint now!
+        bool minted = i_dsc.mint(msg.sender, amountDscToMint);
+        if (!minted) {
+            revert DSCEngine__MintFailed();
+        }
+    }
 
     function burnDSC() external {}
 
     function getHealthFactor() external view {}
 
     function liquidate() external {}
+
+    //////////////////////////
+    /// Public Functions  ////
+    //////////////////////////
+    function getAccountCollateralValueInUsd(
+        address user
+    ) public view returns (uint256) {
+        address token;
+        uint256 amountOfTokenDeposited;
+        uint256 totalCollateralValueInUsd;
+        for (uint256 i = 0; i < s_collateralTokens.length; i++) {
+            token = s_collateralTokens[i];
+            amountOfTokenDeposited = s_collateralDeposited[user][token];
+
+            totalCollateralValueInUsd += _getUsdValue(
+                token,
+                amountOfTokenDeposited
+            );
+        }
+        return totalCollateralValueInUsd;
+    }
+
+    //////////////////////////
+    /// Internal Functions ///
+    //////////////////////////
+    function _revertIfHealthCheckIsBroken(address user) private view {
+        uint256 userHealthFactor = _healthFactor(user);
+        if (userHealthFactor < MIN_HEALTH_FACTOR) {
+            revert DSCEngine__BreaksHealthFactor(userHealthFactor);
+        }
+    }
+
+    function _healthFactor(address user) private view returns (uint256) {
+        uint256 totalCollateralValueInUsd = getAccountCollateralValueInUsd(
+            user
+        );
+
+        /*
+         * @notice: The totalCollateralValueInUsd should always remain double of the amoutDscToMint
+         * ie. every token holder should be 200% overcollateralised.
+         */
+        uint256 dscMintingThreshold = (totalCollateralValueInUsd *
+            LIQUIDATION_THRESHOLD) / 100;
+        return (dscMintingThreshold / s_DSCMinted[user]);
+    }
+
+    function _getUsdValue(
+        address token,
+        uint256 amount
+    ) private view returns (uint256) {
+        AggregatorV3Interface tokenPriceFeed = AggregatorV3Interface(
+            s_priceFeeds[token]
+        );
+        (, int256 price, , , ) = tokenPriceFeed.latestRoundData();
+        return
+            (amount * (uint256(price) * ADDITIONAL_FEED_PRECISION)) / PRECISION;
+    }
 }
