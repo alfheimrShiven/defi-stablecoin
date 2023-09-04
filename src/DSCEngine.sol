@@ -73,7 +73,7 @@ contract DSCEngine is ReentrancyGuard {
     address[] private s_collateralTokens;
 
     ///////////////////
-    //// Events ////
+    //// Events //////
     ///////////////////
 
     event CollateralDeposited(
@@ -170,7 +170,7 @@ contract DSCEngine is ReentrancyGuard {
          * revertIfHealthCheckIsBroken(msg.sender)
          * _healthFactor(user)
          * getAccountCollateralValueInUsd(user)
-         * _getUsdValue(address token, uint256 amount)
+         * getUsdValue(address token, uint256 amount)
          */
         _revertIfHealthCheckIsBroken(msg.sender);
 
@@ -200,7 +200,7 @@ contract DSCEngine is ReentrancyGuard {
             token = s_collateralTokens[i];
             amountOfTokenDeposited = s_collateralDeposited[user][token];
 
-            totalCollateralValueInUsd += _getUsdValue(
+            totalCollateralValueInUsd += getUsdValue(
                 token,
                 amountOfTokenDeposited
             );
@@ -232,10 +232,10 @@ contract DSCEngine is ReentrancyGuard {
         return (dscMintingThreshold / s_DSCMinted[user]);
     }
 
-    function _getUsdValue(
+    function getUsdValue(
         address token,
         uint256 amount
-    ) private view returns (uint256) {
+    ) public view returns (uint256) {
         AggregatorV3Interface tokenPriceFeed = AggregatorV3Interface(
             s_priceFeeds[token]
         );
