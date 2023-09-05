@@ -11,12 +11,17 @@ contract DSCEngineTest is Test {
     DSCEngine dscEngine;
     HelperConfig config;
     address weth;
+    address USER = makeAddr("user");
 
     function setUp() external {
         DeployDSC deployer = new DeployDSC();
         (, dscEngine, config) = deployer.run();
         (, , weth, , ) = config.activeNetworkConfig();
     }
+
+    //////////////////
+    /// Price Test ///
+    //////////////////
 
     function testGetUSDValue() external view {
         uint256 amount = 15e18;
@@ -25,5 +30,18 @@ contract DSCEngineTest is Test {
         uint256 actualUSD = dscEngine.getUsdValue(weth, amount);
 
         assert(expectedUSD == actualUSD);
+    }
+
+    ///////////////////////////////
+    /// Deposit Collateral Test ///
+    ///////////////////////////////
+
+    function testRevertsIfCollateralZero() public {
+        vm.startPrank(USER);
+        // ERC20Mock(weth).approve(address(dsce), amountCollateral);
+
+        vm.expectRevert(DSCEngine.DSCEngine__NeedsMoreThanZero.selector);
+        dscEngine.depositCollateral(weth, 0);
+        vm.stopPrank();
     }
 }
