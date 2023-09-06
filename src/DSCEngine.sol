@@ -312,7 +312,7 @@ contract DSCEngine is ReentrancyGuard {
     ) public view returns (uint256) {
         // get USD value of the token
         AggregatorV3Interface priceFeed = AggregatorV3Interface(
-            collateralToken
+            s_priceFeeds[collateralToken]
         );
         (, int256 price, , , ) = priceFeed.latestRoundData();
 
