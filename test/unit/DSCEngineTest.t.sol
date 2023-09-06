@@ -145,12 +145,12 @@ contract DSCEngineTest is Test {
 
     function testIfCollateralDepositedEventIsEmitted() public {
         vm.startPrank(USER);
+        ERC20Mock(weth).approve(address(dscEngine), COLLATERAL_AMOUNT);
+
         vm.expectEmit(true, true, true, false, address(dscEngine));
         // we emit the event we expect to see
         emit CollateralDeposited(USER, weth, COLLATERAL_AMOUNT);
-
-        //We perform the call
-        ERC20Mock(weth).approve(address(dscEngine), COLLATERAL_AMOUNT);
+        //We perform the call that will trigger the actual event
         dscEngine.depositCollateral(weth, COLLATERAL_AMOUNT);
         vm.stopPrank();
     }
