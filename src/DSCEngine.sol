@@ -306,6 +306,7 @@ contract DSCEngine is ReentrancyGuard {
     //////////////////////////
     /// Public Functions  ////
     //////////////////////////
+
     function getTokenAmountFromUsd(
         address collateralToken,
         uint256 debtToCover
@@ -331,6 +332,18 @@ contract DSCEngine is ReentrancyGuard {
         (, int256 price, , , ) = tokenPriceFeed.latestRoundData();
         return
             (amount * (uint256(price) * ADDITIONAL_FEED_PRECISION)) / PRECISION;
+    }
+
+    function getAccountInformation(
+        address user
+    )
+        public
+        view
+        returns (uint256 dscMinted, uint256 collateralDepositedValue)
+    {
+        (dscMinted, collateralDepositedValue) = _getAccountInformation(user);
+
+        return (dscMinted, collateralDepositedValue);
     }
 
     function getAccountCollateralValueInUsd(
@@ -398,5 +411,17 @@ contract DSCEngine is ReentrancyGuard {
         uint256 dscMintingThreshold = (totalCollateralValueInUsd *
             LIQUIDATION_THRESHOLD) / 100;
         return ((dscMintingThreshold * PRECISION) / s_DSCMinted[user]);
+    }
+
+    function _getAccountInformation(
+        address user
+    )
+        private
+        view
+        returns (uint256 dscMinted, uint256 collateralDepositedValue)
+    {
+        dscMinted = s_DSCMinted[user];
+        collateralDepositedValue = getAccountCollateralValueInUsd(user);
+        return (dscMinted, collateralDepositedValue);
     }
 }
