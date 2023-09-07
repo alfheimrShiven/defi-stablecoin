@@ -68,7 +68,7 @@ contract DSCEngine is ReentrancyGuard {
     mapping(address user => mapping(address token => uint256 amount))
         private s_collateralDeposited;
     mapping(address user => uint256 dscMinted) private s_DSCMinted;
-    uint256 public constant MIN_HEALTH_FACTOR = 1;
+    uint256 public constant MIN_HEALTH_FACTOR = 1e18;
     uint256 public constant ADDITIONAL_FEED_PRECISION = 1e10;
     uint256 public constant PRECISION = 1e18;
     uint256 public constant LIQUIDATION_THRESHOLD = 50;
@@ -238,8 +238,6 @@ contract DSCEngine is ReentrancyGuard {
         _burnDSC(amountToBurn, msg.sender);
     }
 
-    function getHealthFactor() external view {}
-
     /*
      * @param collateralToken The token the liquidator wants to avail by liquidating from the bad user
      * @param user The bad user who failed to maintain their Health Factor.
@@ -306,6 +304,26 @@ contract DSCEngine is ReentrancyGuard {
     //////////////////////////
     /// Public Functions  ////
     //////////////////////////
+
+    /*
+    @param amountToMint The amount of DSC you plan to mint
+    @param collateralToDeposit The amount of Collateral you plan to deposit
+    This function returns the stimulated health factor with various collateral & minting values sent as params.
+    */
+    function calculateHealthFactor(
+        uint256 amountToMint,
+        uint256 collateralToDepositInUsd
+    ) external pure returns (uint256) {
+        uint256 dscMintingThreshold = (collateralToDepositInUsd *
+            LIQUIDATION_THRESHOLD) / 100;
+        return ((dscMintingThreshold * PRECISION) / amountToMint);
+    }
+
+    function getUserHealthFactor(
+        address user
+    ) public view returns (uint256 userHealthFactor) {
+        userHealthFactor = _healthFactor(user);
+    }
 
     function getTokenAmountFromUsd(
         address collateralToken,
@@ -424,4 +442,16 @@ contract DSCEngine is ReentrancyGuard {
         collateralDepositedValue = getAccountCollateralValueInUsd(user);
         return (dscMinted, collateralDepositedValue);
     }
+
+    //////////////////////
+    // GETTER FUNCTIONS //
+    //////////////////////
+    function getAdditionalFeedPrecision() public pure returns (uint256) {
+        return ADDITIONAL_FEED_PRECISION;
+    }
+
+    function getPrecision() public pure returns (uint256) {
+        return PRECISION;
+    }
+
 }
