@@ -8,6 +8,7 @@ import {DSCEngine} from "../../src/DSCEngine.sol";
 import {DeployDSC} from "../../script/DeployDSC.s.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
+import {MockFailedTransferFrom} from "../mocks/MockFailedTransferFrom.sol";
 
 contract DSCEngineTest is Test {
     //////////////////////////////////////////////////////
@@ -152,6 +153,40 @@ contract DSCEngineTest is Test {
         emit CollateralDeposited(USER, weth, COLLATERAL_AMOUNT);
         //We perform the call that will trigger the actual event
         dscEngine.depositCollateral(weth, COLLATERAL_AMOUNT);
+        vm.stopPrank();
+    }
+
+    /* @devs this test requires its own setup as the token deposited * as collateral should cause the failure, for which we'll be  *    using a MockFailedTransferFrom token.
+     */
+    function testRevertIfTransferFailed() public {
+        // Arrange - SETUP
+        address owner = msg.sender;
+        vm.prank(owner);
+        MockFailedTransferFrom mockDsc = new MockFailedTransferFrom();
+        mockDsc.mint(USER, COLLATERAL_AMOUNT); // will be used to transfer as collateral to the protocol
+
+        tokenAddresses = [address(mockDsc)];
+        tokenPriceFeedAddresses = [wethUsdPriceFeed];
+        vm.prank(owner);
+        DSCEngine mockDscEngine = new DSCEngine(
+            tokenAddresses,
+            tokenPriceFeedAddresses,
+            address(mockDsc)
+        );
+
+        vm.prank(owner);
+        mockDsc.transferOwnership(address(mockDscEngine));
+
+        // Arrange - For transfer. USER will come into picture and deposit collateral
+        vm.startPrank(USER);
+        ERC20Mock(address(mockDsc)).approve(
+            address(mockDscEngine),
+            COLLATERAL_AMOUNT
+        );
+
+        // Act / Assert
+        vm.expectRevert(DSCEngine.DSCEngine__TransferFailed.selector);
+        mockDscEngine.depositCollateral(address(mockDsc), COLLATERAL_AMOUNT);
         vm.stopPrank();
     }
 }
