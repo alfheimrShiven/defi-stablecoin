@@ -57,7 +57,7 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine__TransferFailed();
     error DSCEngine__BreaksHealthFactor(uint256 userHealthFactor);
     error DSCEngine__MintFailed();
-    error DSCEngine__NotEnoughDSCToBurn(address user, uint256 amountDSCToBurn);
+    error DSCEngine__NotEnoughDSCToBurn(address user, uint256 amountToBurn);
     error DSCEngine__HealthFactorOk(address user);
     error DSCEngine__HealthFactorNotImproved(address user);
     ///////////////////
@@ -392,6 +392,11 @@ contract DSCEngine is ReentrancyGuard {
             revert DSCEngine__NotEnoughDSCToBurn(user, amountToBurn);
         }
         s_DSCMinted[user] -= amountToBurn;
+
+        bool success = i_dsc.transferFrom(user, address(this), amountToBurn);
+        if (!success) {
+            revert DSCEngine__TransferFailed();
+        }
         i_dsc.burn(amountToBurn);
         emit DSCBurnt(user, amountToBurn);
     }

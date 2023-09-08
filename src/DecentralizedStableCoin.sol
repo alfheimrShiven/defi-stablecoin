@@ -39,9 +39,13 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract DecentralizedStableCoin is ERC20Burnable, Ownable {
     // errors
-    error DecentralisedStableCoin__NotZeroAddress();
-    error DecentralisedStableCoin__AmountMustBeMoreThanZero();
-    error DecentralisedStableCoin__BurnAmountExceedsBalance();
+    error DecentralizedStableCoin__NotZeroAddress();
+    error DecentralizedStableCoin__AmountMustBeMoreThanZero();
+    error DecentralizedStableCoin__BurnAmountExceedsBalance(
+        address USER,
+        uint256 balance,
+        uint256 amount
+    );
 
     constructor() ERC20("DecentralizedStableCoin", "DSC") {}
 
@@ -50,10 +54,10 @@ contract DecentralizedStableCoin is ERC20Burnable, Ownable {
         uint256 _amount
     ) external onlyOwner returns (bool) {
         if (_to == address(0)) {
-            revert DecentralisedStableCoin__NotZeroAddress();
+            revert DecentralizedStableCoin__NotZeroAddress();
         }
         if (_amount <= 0) {
-            revert DecentralisedStableCoin__AmountMustBeMoreThanZero();
+            revert DecentralizedStableCoin__AmountMustBeMoreThanZero();
         }
         _mint(_to, _amount);
         return true;
@@ -63,10 +67,14 @@ contract DecentralizedStableCoin is ERC20Burnable, Ownable {
         uint256 balance = balanceOf(msg.sender);
 
         if (_amount <= 0) {
-            revert DecentralisedStableCoin__AmountMustBeMoreThanZero();
+            revert DecentralizedStableCoin__AmountMustBeMoreThanZero();
         }
         if (balance < _amount) {
-            revert DecentralisedStableCoin__BurnAmountExceedsBalance();
+            revert DecentralizedStableCoin__BurnAmountExceedsBalance(
+                msg.sender,
+                balance,
+                _amount
+            );
         }
 
         super.burn(_amount);
