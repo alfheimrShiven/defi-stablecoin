@@ -209,6 +209,7 @@ contract DSCEngine is ReentrancyGuard {
             msg.sender,
             msg.sender
         );
+        _revertIfHealthCheckIsBroken(msg.sender);
     }
 
     function mintDSC(
@@ -453,5 +454,4 @@ contract DSCEngine is ReentrancyGuard {
     function getPrecision() public pure returns (uint256) {
         return PRECISION;
     }
-
 }
