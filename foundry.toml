@@ -7,6 +7,6 @@ remappings= ["@openzeppelin/contracts=lib/openzeppelin-contracts/contracts", "@c
 [invariant]
 runs = 100
 depth = 128
-fail_on_revert =  false
+fail_on_revert =  true
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

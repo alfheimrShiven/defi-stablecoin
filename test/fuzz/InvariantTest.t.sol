@@ -15,7 +15,7 @@ import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
 import {Handler} from "./Handler.t.sol";
 
-contract OpenInvariantsTest is StdInvariant, Test {
+contract InvariantsTest is StdInvariant, Test {
     DecentralizedStableCoin dsc;
     DSCEngine dscEngine;
     HelperConfig helperConfig;
