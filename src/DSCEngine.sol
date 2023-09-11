@@ -312,12 +312,17 @@ contract DSCEngine is ReentrancyGuard {
     This function returns the stimulated health factor with various collateral & minting values sent as params.
     */
     function calculateHealthFactor(
-        uint256 amountToMint,
-        uint256 collateralToDepositInUsd
-    ) external pure returns (uint256) {
-        uint256 dscMintingThreshold = (collateralToDepositInUsd *
+        uint256 mintedAmount,
+        uint256 collateralDepositInUsd
+    ) public pure returns (uint256) {
+        if (mintedAmount == 0) {
+            return type(uint256).max;
+        }
+
+        uint256 dscMintingThreshold = (collateralDepositInUsd *
             LIQUIDATION_THRESHOLD) / 100;
-        return ((dscMintingThreshold * PRECISION) / amountToMint);
+
+        return ((dscMintingThreshold * PRECISION) / mintedAmount);
     }
 
     function getUserHealthFactor(
@@ -432,9 +437,8 @@ contract DSCEngine is ReentrancyGuard {
          * @notice: The totalCollateralValueInUsd should always remain double of the amoutDscToMint
          * ie. every token holder should be 200% overcollateralised.
          */
-        uint256 dscMintingThreshold = (totalCollateralValueInUsd *
-            LIQUIDATION_THRESHOLD) / 100;
-        return ((dscMintingThreshold * PRECISION) / s_DSCMinted[user]);
+        return
+            calculateHealthFactor(s_DSCMinted[user], totalCollateralValueInUsd);
     }
 
     function _getAccountInformation(
