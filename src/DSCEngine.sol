@@ -73,7 +73,8 @@ contract DSCEngine is ReentrancyGuard {
     uint256 public constant PRECISION = 1e18;
     uint256 public constant LIQUIDATION_THRESHOLD = 50;
     uint256 public constant LIQUIDATION_BONUS = 10;
-    address[] private s_collateralTokens;
+    address[] public s_collateralTokens;
+    address[] public s_tokenPriceFeeds;
 
     ///////////////////
     //// Events //////
@@ -462,5 +463,16 @@ contract DSCEngine is ReentrancyGuard {
 
     function getPrecision() public pure returns (uint256) {
         return PRECISION;
+    }
+
+    function getPriceFeedAddresses() public returns (address[] memory) {
+        for (uint256 i = 0; i < s_collateralTokens.length; i++) {
+            s_tokenPriceFeeds.push(s_priceFeeds[s_collateralTokens[i]]);
+        }
+        return s_tokenPriceFeeds;
+    }
+
+    function getCollateralTokens() public view returns (address[] memory) {
+        return s_collateralTokens;
     }
 }
