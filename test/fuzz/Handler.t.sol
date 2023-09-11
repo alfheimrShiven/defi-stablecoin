@@ -27,7 +27,7 @@ contract Handler is Test {
     ) public {
         // Arrange
         address collateralToken = _getCollateralFromSeed(collateralSeed); // restricting collateral tokens to be one of the two allowed
-        collateralAmount = bound(collateralAmount, 1, MAX_DEPOSIT_SIZE); // restricting collateral amount to be more than zero
+        collateralAmount = bound(collateralAmount, 1, MAX_DEPOSIT_SIZE); // restricting collateralAmount to be more than zero
 
         // minting collateral tokens
         vm.startPrank(msg.sender);
@@ -40,6 +40,28 @@ contract Handler is Test {
         );
 
         dscEngine.depositCollateral(collateralToken, collateralAmount);
+    }
+
+    function redeemCollateral(
+        uint256 collateralSeed,
+        uint256 redeemAmount
+    ) public {
+        // Arrange
+        // choose the collateral token to redeem
+        address collateralToken = _getCollateralFromSeed(collateralSeed);
+
+        // redeemAmount should always be more than zero but less than the total collateral deposited
+        uint256 maxRedeemableCollateral = dscEngine.getCollateralDeposited(
+            collateralToken
+        );
+        redeemAmount = bound(redeemAmount, 0, maxRedeemableCollateral); // maxRedeemableCollateral can be zero incase no collateral deposited, hence starting bound value has to be zero
+
+        if (redeemAmount == 0) {
+            // to skip the test with redeemAmount = 0
+            return;
+        }
+
+        dscEngine.redeemCollateral(collateralToken, redeemAmount);
     }
 
     function _getCollateralFromSeed(
