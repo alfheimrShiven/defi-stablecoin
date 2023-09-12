@@ -12,6 +12,8 @@ contract Handler is Test {
     address wEth;
     address wBtc;
     uint256 MAX_DEPOSIT_SIZE = type(uint96).max; // uint96 because if we used uint256 max, then we would not be able to deposit more collateral for other tests as type(uint256).max + anything would then throw an error
+    uint256 public mintDscCalls = 0;
+    address[] usersWithDepositedCollateral;
 
     constructor(DecentralizedStableCoin _dsc, DSCEngine _dscEngine) {
         dsc = _dsc;
@@ -40,6 +42,8 @@ contract Handler is Test {
         );
 
         dscEngine.depositCollateral(collateralToken, collateralAmount);
+        // TODO: double push to be fixed
+        usersWithDepositedCollateral.push(msg.sender);
         vm.stopPrank();
     }
 
@@ -88,30 +92,37 @@ contract Handler is Test {
         dscEngine.redeemCollateral(collateralToken, redeemAmount);
     }
 
-    function mintDsc(uint256 mintAmount) public {
+    function mintDsc(uint256 mintAmount, uint256 userWithCollateralSeed) public {
+        if(usersWithDepositedCollateral.length == 0){
+            return;
+        } 
         // Arrange
+        address sender = _getRandomUserWithCollateral(userWithCollateralSeed); 
+        
         // mintAmount should not be 0 and should not be more than (half the collateral value deposited - dscMinted)
         (uint256 dscMinted, uint256 collateralDepositedValue) = dscEngine
-            .getAccountInformation(msg.sender);
+            .getAccountInformation(sender);
 
-        int256 maxMintAmount = (int256(collateralDepositedValue) / 2) -
-            int256(dscMinted);
+        int256 maxMintAmount = (int256(collateralDepositedValue) / 2) - int256(dscMinted);
         if (maxMintAmount < 0) {
             // this can happen if the collateral value drops after a token crash
             return;
         }
-        console.log("User collateral value: ", collateralDepositedValue);
-        console.log("Max mint amount:", uint256(maxMintAmount));
 
         mintAmount = bound(mintAmount, 0, uint256(maxMintAmount));
         if (mintAmount == 0) {
             // can be 0 if no collateral is deposited
             return;
         }
-        vm.prank(msg.sender);
+
+        vm.prank(sender);
         dscEngine.mintDSC(mintAmount);
+        mintDscCalls++;
     }
 
+    ////////////////////
+    /// Helper Func. ///
+    ////////////////////
     function _getCollateralFromSeed(
         uint256 collateralSeed
     ) public view returns (address) {
@@ -120,5 +131,10 @@ contract Handler is Test {
         } else {
             return wBtc;
         }
+    }
+
+    function _getRandomUserWithCollateral(uint256 userSeed) public view returns (address) {
+        uint256 randomUserIndex = (userSeed % usersWithDepositedCollateral.length);
+        return usersWithDepositedCollateral[randomUserIndex];
     }
 }

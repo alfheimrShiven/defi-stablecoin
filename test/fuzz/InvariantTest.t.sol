@@ -45,6 +45,15 @@ contract InvariantsTest is StdInvariant, Test {
 
         console.log("Total DSC Supply: ", totalDscSupply);
         console.log("Total Collateral value: ", totalCollateralValue);
+        console.log("Mint calls: ", handler.mintDscCalls());
         assert(totalDscSupply <= totalCollateralValue);
+    }
+
+    function invariant_gettersShouldNotRevert() public {
+        dscEngine.getCollateralTokens();
+        dscEngine.getPrecision();
+        dscEngine.getPriceFeedAddresses();
+        // dscEngine.getTokenAmountFromUsd();
+        // dscEngine.getUsdValue();
     }
 }
