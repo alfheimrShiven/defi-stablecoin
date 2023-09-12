@@ -1,12 +1,12 @@
 /* Identified Invarients:
- * 1. The minted DSC should always be less than the collateral deposited.
+ * 1. The minted DSC should always be less than the collateral ed.
  * 2. Our view/pure functions should never revert
  */
 
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
 import {DecentralizedStableCoin} from "../../src/DecentralizedStableCoin.sol";
 import {DSCEngine} from "../../src/DSCEngine.sol";
@@ -37,11 +37,14 @@ contract InvariantsTest is StdInvariant, Test {
         view
     {
         uint256 totalDscSupply = dsc.totalSupply();
-        uint256 ethBalance = ERC20Mock(wEth).balanceOf(address(dsc));
-        uint256 btcBalance = ERC20Mock(wBtc).balanceOf(address(dsc));
+        uint256 ethBalance = ERC20Mock(wEth).balanceOf(address(dscEngine));
+        uint256 btcBalance = ERC20Mock(wBtc).balanceOf(address(dscEngine));
 
         uint256 totalCollateralValue = dscEngine.getUsdValue(wEth, ethBalance) +
             dscEngine.getUsdValue(wBtc, btcBalance);
+
+        console.log("Total DSC Supply: ", totalDscSupply);
+        console.log("Total Collateral value: ", totalCollateralValue);
         assert(totalDscSupply <= totalCollateralValue);
     }
 }

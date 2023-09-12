@@ -1,7 +1,7 @@
 // Will control the flow of functions
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
-import {Test} from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {DecentralizedStableCoin} from "../../src/DecentralizedStableCoin.sol";
 import {DSCEngine} from "../../src/DSCEngine.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
@@ -43,30 +43,6 @@ contract Handler is Test {
         vm.stopPrank();
     }
 
-    function mintDsc(uint256 mintAmount) public {
-        // Arrange
-        // mintAmount should not be 0 and should not be more than (half the collateral value deposited - dscMinted)
-        (uint256 dscMinted, uint256 collateralDepositedValue) = dscEngine
-            .getAccountInformation(msg.sender);
-
-        int256 maxMintAmount = (int256(collateralDepositedValue) / 2) -
-            int256(dscMinted);
-        if (maxMintAmount < 0) {
-            // this can happen if the collateral value drops after a token crash
-            return;
-        }
-
-        mintAmount = bound(mintAmount, 0, uint256(maxMintAmount));
-        if (mintAmount == 0) {
-            // can be 0 if no collateral is deposited
-            return;
-        }
-
-        vm.startPrank(msg.sender);
-        dscEngine.mintDSC(mintAmount);
-        vm.stopPrank();
-    }
-
     function redeemCollateral(
         uint256 collateralSeed,
         uint256 redeemAmount
@@ -76,7 +52,6 @@ contract Handler is Test {
         address collateralToken = _getCollateralFromSeed(collateralSeed);
 
         // redeemAmount should always be more than zero but less than the total collateral deposited
-
         uint256 maxRedeemableCollateral = dscEngine.getCollateralDeposited(
             collateralToken
         );
@@ -92,7 +67,7 @@ contract Handler is Test {
         (uint256 dscMinted, uint256 collateralDepositedValue) = dscEngine
             .getAccountInformation(msg.sender);
         uint256 collateralValueThatCannotBeWithdrawn = dscMinted * 2;
-        
+
         uint256 maxRedeemableCollateral = collateralDepositedValue -
             dscEngine.getTokenAmountFromUsd(
                 collateralToken,
@@ -109,8 +84,32 @@ contract Handler is Test {
             return;
         }
          */
-
+        vm.prank(msg.sender);
         dscEngine.redeemCollateral(collateralToken, redeemAmount);
+    }
+
+    function mintDsc(uint256 mintAmount) public {
+        // Arrange
+        // mintAmount should not be 0 and should not be more than (half the collateral value deposited - dscMinted)
+        (uint256 dscMinted, uint256 collateralDepositedValue) = dscEngine
+            .getAccountInformation(msg.sender);
+
+        int256 maxMintAmount = (int256(collateralDepositedValue) / 2) -
+            int256(dscMinted);
+        if (maxMintAmount < 0) {
+            // this can happen if the collateral value drops after a token crash
+            return;
+        }
+        console.log("User collateral value: ", collateralDepositedValue);
+        console.log("Max mint amount:", uint256(maxMintAmount));
+
+        mintAmount = bound(mintAmount, 0, uint256(maxMintAmount));
+        if (mintAmount == 0) {
+            // can be 0 if no collateral is deposited
+            return;
+        }
+        vm.prank(msg.sender);
+        dscEngine.mintDSC(mintAmount);
     }
 
     function _getCollateralFromSeed(
