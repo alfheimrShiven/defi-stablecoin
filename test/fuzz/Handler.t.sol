@@ -5,6 +5,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {DecentralizedStableCoin} from "../../src/DecentralizedStableCoin.sol";
 import {DSCEngine} from "../../src/DSCEngine.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
+import {MockV3Aggregator} from "../mocks/MockV3Aggregator.sol";
 
 contract Handler is Test {
     DecentralizedStableCoin dsc;
@@ -119,6 +120,16 @@ contract Handler is Test {
         dscEngine.mintDSC(mintAmount);
         mintDscCalls++;
     }
+
+    /**
+     * TODO This breaks our system and should be taken care off.
+    function updateEthUsdPriceFeed(uint96 newEthUsdPrice) public {
+        MockV3Aggregator ethUsdPriceFeed = MockV3Aggregator(dscEngine.getCollateralTokenPriceFeed(wEth));
+
+        int256 newPrice = int256(uint256(newEthUsdPrice));
+        ethUsdPriceFeed.updateAnswer(newPrice);
+    }
+     */
 
     ////////////////////
     /// Helper Func. ///

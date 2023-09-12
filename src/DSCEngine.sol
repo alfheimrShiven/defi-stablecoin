@@ -45,7 +45,7 @@ pragma solidity ^0.8.18;
 import {DecentralizedStableCoin} from "./DecentralizedStableCoin.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import {OracleLib, AggregatorV3Interface} from "./libraries/OracleLib.sol";
 
 contract DSCEngine is ReentrancyGuard {
     //////////////////////
@@ -60,6 +60,12 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine__NotEnoughDSCToBurn(address user, uint256 amountToBurn);
     error DSCEngine__HealthFactorOk(address user);
     error DSCEngine__HealthFactorNotImproved(address user);
+
+    ///////////////////
+    //// Types ////
+    ///////////////////
+    using OracleLib for AggregatorV3Interface;
+
     ///////////////////
     // State Variables
     ///////////////////
@@ -340,7 +346,7 @@ contract DSCEngine is ReentrancyGuard {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(
             s_priceFeeds[collateralToken]
         );
-        (, int256 price, , , ) = priceFeed.latestRoundData();
+        (, int256 price, , , ) = priceFeed.staleCheckLatestRoundData();
 
         // debtToCover / USD value per token
         return ((debtToCover * PRECISION) /
@@ -354,7 +360,7 @@ contract DSCEngine is ReentrancyGuard {
         AggregatorV3Interface tokenPriceFeed = AggregatorV3Interface(
             s_priceFeeds[token]
         );
-        (, int256 price, , , ) = tokenPriceFeed.latestRoundData();
+        (, int256 price, , , ) = tokenPriceFeed.staleCheckLatestRoundData();
         return
             (amount * (uint256(price) * ADDITIONAL_FEED_PRECISION)) / PRECISION;
     }
@@ -470,6 +476,10 @@ contract DSCEngine is ReentrancyGuard {
             s_tokenPriceFeeds.push(s_priceFeeds[s_collateralTokens[i]]);
         }
         return s_tokenPriceFeeds;
+    }
+
+    function getCollateralTokenPriceFeed(address collateralToken) public view returns (address) {
+        return s_priceFeeds[collateralToken];
     }
 
     function getCollateralTokens() public view returns (address[] memory) {
