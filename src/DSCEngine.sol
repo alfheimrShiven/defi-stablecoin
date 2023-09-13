@@ -60,6 +60,7 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine__NotEnoughDSCToBurn(address user, uint256 amountToBurn);
     error DSCEngine__HealthFactorOk(address user);
     error DSCEngine__HealthFactorNotImproved(address user);
+    error DSCEngine__DSCNotCollapsed(uint256 totalDscMinted, uint256 totalCollateralValueOfProtocol);
 
     ///////////////////
     //// Types ////
@@ -81,6 +82,7 @@ contract DSCEngine is ReentrancyGuard {
     uint256 public constant LIQUIDATION_BONUS = 10;
     address[] public s_collateralTokens;
     address[] public s_tokenPriceFeeds;
+    address[] s_users;
 
     ///////////////////
     //// Events //////
@@ -100,6 +102,8 @@ contract DSCEngine is ReentrancyGuard {
     );
 
     event DSCBurnt(address indexed user, uint256 indexed dscBurnt);
+
+    event DSCProtocolCollapsed();
 
     //////////////////////
     //// MODIFIERS //////
@@ -183,6 +187,8 @@ contract DSCEngine is ReentrancyGuard {
         s_collateralDeposited[msg.sender][
             tokenCollateralAddress
         ] += amountCollateral;
+
+        s_users.push(msg.sender);
 
         // emit event
         emit CollateralDeposited(
@@ -458,6 +464,50 @@ contract DSCEngine is ReentrancyGuard {
         dscMinted = s_DSCMinted[user];
         collateralDepositedValue = getAccountCollateralValueInUsd(user);
         return (dscMinted, collateralDepositedValue);
+    }
+
+
+    /*
+        * @title CollapseDSC
+        * @author Shivendra Singh
+        * @notice In case of total collateral value being MORE than the DSC Minted, the * protocol should render itself as collapsed. In such an event, the protocol *will burn all minted DSC and redeem all deposited collateral of each and every * user.
+    */
+
+     function _collapseDsc() internal {
+        uint256 totalCollateralValueOfProtocol = _getTotalCollateralValueOfProtocol();
+        uint256 totalDSCMinted = i_dsc.totalSupply();
+
+        if(totalCollateralValueOfProtocol > totalDSCMinted) {
+            revert DSCEngine__DSCNotCollapsed(totalDSCMinted, totalCollateralValueOfProtocol);
+        }
+
+        for(uint256 u = 0; u < s_users.length; u++){
+            address user = s_users[u];
+            uint256 usersTotalDscMinted = s_DSCMinted[user];
+            
+            _burnDSC(usersTotalDscMinted, user);
+
+            for(uint256 t = 0 ; t < s_collateralTokens.length; t++){
+                address collateralToken = s_collateralTokens[t];
+                uint256 collateralTokenAmount = s_collateralDeposited[user][collateralToken];
+                
+                if(collateralTokenAmount > 0 ) {
+                    _redeemCollateral(collateralToken, collateralTokenAmount, address(this), user);
+                }
+            } 
+        }
+
+        emit DSCProtocolCollapsed();
+    }   
+
+    function _getTotalCollateralValueOfProtocol() internal view returns (uint256) {
+        uint256 totalCollateralValueOfProtocol;
+
+        for(uint256 u = 0; u < s_users.length; u++) {
+            totalCollateralValueOfProtocol += getAccountCollateralValueInUsd(s_users[u]);
+        }
+        
+        return totalCollateralValueOfProtocol;
     }
 
     //////////////////////
