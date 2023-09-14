@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+ // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.18;
 
@@ -401,7 +401,6 @@ contract DSCEngineTest is Test {
     function testBurnDsc() public depositedCollateralAndMintedDSC {
         // Arrange
         vm.startPrank(user);
-
         dsc.approve(address(dscEngine), mintAmount);
         dscEngine.burnDSC(mintAmount);
         vm.stopPrank();
@@ -494,5 +493,39 @@ contract DSCEngineTest is Test {
         );
         console.log("Liquidator ETH Bal: ", actualEthBalOfLiquidator);
         assertEq(actualEthBalOfLiquidator, expectedEthBal);
+    }
+
+     ///////////////////////////////
+    /// Collapse Protocol tests ///
+    ///////////////////////////////
+
+    function testRevertIfProtocolNotCollapsed() public depositedCollateralAndMintedDSC {
+        vm.expectRevert(abi.encodeWithSelector(
+            DSCEngine.DSCEngine__DSCNotCollapsed.selector,
+            mintAmount,
+            dscEngine.getUsdValue(weth, COLLATERAL_AMOUNT)
+        )
+        );
+        dscEngine.collapseDsc();
+    }
+
+    function testProtocolCollapse() public depositedCollateralAndMintedDSC {
+        // Arrange
+        // Crash the collateralValue
+        int256 crashedEthUsdPrice = 8e8; // $8/ETH, collateral value = 10 ether * $8 = 80 < 100 (mintAmount)
+        MockV3Aggregator ethUsdPriceFeedAggregator = MockV3Aggregator(wethUsdPriceFeed);
+        ethUsdPriceFeedAggregator.updateAnswer(crashedEthUsdPrice);
+
+        vm.startPrank(user);
+        dsc.approve(address(dscEngine), mintAmount);
+        
+        // Act
+        // dscEngine.collapseDsc();
+        dscEngine.mintDSC(mintAmount);
+
+        // Assert
+        assertEq(dsc.totalSupply(), 0);
+        assertEq(dscEngine.getCollateralDeposited(weth), 0);
+        vm.stopPrank();
     }
 }

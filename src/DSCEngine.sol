@@ -46,6 +46,7 @@ import {DecentralizedStableCoin} from "./DecentralizedStableCoin.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {OracleLib, AggregatorV3Interface} from "./libraries/OracleLib.sol";
+import {console} from "forge-std/console.sol";
 
 contract DSCEngine is ReentrancyGuard {
     //////////////////////
@@ -61,6 +62,7 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine__HealthFactorOk(address user);
     error DSCEngine__HealthFactorNotImproved(address user);
     error DSCEngine__DSCNotCollapsed(uint256 totalDscMinted, uint256 totalCollateralValueOfProtocol);
+    error DSCEngine__DSCProtocolCollapsed(uint256 totalDscMinted, uint256 _getTotalCollateralValueOfProtocol);
 
     ///////////////////
     //// Types ////
@@ -122,6 +124,17 @@ contract DSCEngine is ReentrancyGuard {
         _;
     }
 
+    modifier checkProtocolCollapsed() {
+         uint256 totalCollateralValueOfProtocol = _getTotalCollateralValueOfProtocol();
+        uint256 totalDSCMinted = i_dsc.totalSupply();
+
+        if(totalCollateralValueOfProtocol < totalDSCMinted) {
+            collapseDsc();
+        } else {
+            _;
+        }
+    }
+
     ///////////////////////////
     /// External Functions ///
     //////////////////////////
@@ -154,7 +167,7 @@ contract DSCEngine is ReentrancyGuard {
         address tokenCollateralAddress,
         uint256 amountCollateral,
         uint256 amountDscToMint
-    ) external {
+    ) external checkProtocolCollapsed() {
         depositCollateral(tokenCollateralAddress, amountCollateral);
         mintDSC(amountDscToMint);
     }
@@ -227,7 +240,7 @@ contract DSCEngine is ReentrancyGuard {
 
     function mintDSC(
         uint256 amountDscToMint
-    ) public moreThanZero(amountDscToMint) {
+    ) public moreThanZero(amountDscToMint) checkProtocolCollapsed(){
         s_DSCMinted[msg.sender] += amountDscToMint;
 
         // Check if Collateral value is more than DSC value
@@ -268,7 +281,7 @@ contract DSCEngine is ReentrancyGuard {
         address collateralToken,
         address user,
         uint256 debtToCover
-    ) external {
+    ) external checkProtocolCollapsed(){
         uint256 startingHealthFactor = _healthFactor(user);
 
         if (startingHealthFactor >= MIN_HEALTH_FACTOR) {
@@ -401,6 +414,45 @@ contract DSCEngine is ReentrancyGuard {
         return totalCollateralValueInUsd;
     }
 
+
+    /*
+        * @title CollapseDSC
+        * @author Shivendra Singh
+        * @notice In case of total collateral value being MORE than the DSC Minted, the * protocol should render itself as collapsed. In such an event, the protocol *will burn all minted DSC and redeem all deposited collateral of each and every * user.
+    */
+
+     function collapseDsc() public {
+       
+        uint256 totalCollateralValueOfProtocol = _getTotalCollateralValueOfProtocol();
+        uint256 totalDSCMinted = i_dsc.totalSupply();
+
+        
+        if(totalCollateralValueOfProtocol > totalDSCMinted) {
+            revert DSCEngine__DSCNotCollapsed(totalDSCMinted, totalCollateralValueOfProtocol);
+        }
+
+        emit DSCProtocolCollapsed();
+        console.log('Users in the protocol: ', s_users.length);
+        
+        for(uint256 u = 0; u < s_users.length; u++){
+            address user = s_users[u];
+            uint256 userDscMinted = s_DSCMinted[user];
+            
+            if(userDscMinted > 0) {
+                _burnDSC(userDscMinted, user);
+            }
+            
+            for(uint256 t = 0 ; t < s_collateralTokens.length; t++) {
+                address collateralToken = s_collateralTokens[t];
+                uint256 collateralTokenAmount = s_collateralDeposited[user][collateralToken];
+
+                if(collateralTokenAmount > 0 ) {
+                    _redeemCollateral(collateralToken, collateralTokenAmount, user, user);
+                } 
+            } 
+        }
+    }   
+
     //////////////////////////
     /// Internal Functions ///
     //////////////////////////
@@ -415,6 +467,7 @@ contract DSCEngine is ReentrancyGuard {
         if (!success) {
             revert DSCEngine__TransferFailed();
         }
+
         i_dsc.burn(amountToBurn);
         emit DSCBurnt(user, amountToBurn);
     }
@@ -465,40 +518,6 @@ contract DSCEngine is ReentrancyGuard {
         collateralDepositedValue = getAccountCollateralValueInUsd(user);
         return (dscMinted, collateralDepositedValue);
     }
-
-
-    /*
-        * @title CollapseDSC
-        * @author Shivendra Singh
-        * @notice In case of total collateral value being MORE than the DSC Minted, the * protocol should render itself as collapsed. In such an event, the protocol *will burn all minted DSC and redeem all deposited collateral of each and every * user.
-    */
-
-     function _collapseDsc() internal {
-        uint256 totalCollateralValueOfProtocol = _getTotalCollateralValueOfProtocol();
-        uint256 totalDSCMinted = i_dsc.totalSupply();
-
-        if(totalCollateralValueOfProtocol > totalDSCMinted) {
-            revert DSCEngine__DSCNotCollapsed(totalDSCMinted, totalCollateralValueOfProtocol);
-        }
-
-        for(uint256 u = 0; u < s_users.length; u++){
-            address user = s_users[u];
-            uint256 usersTotalDscMinted = s_DSCMinted[user];
-            
-            _burnDSC(usersTotalDscMinted, user);
-
-            for(uint256 t = 0 ; t < s_collateralTokens.length; t++){
-                address collateralToken = s_collateralTokens[t];
-                uint256 collateralTokenAmount = s_collateralDeposited[user][collateralToken];
-                
-                if(collateralTokenAmount > 0 ) {
-                    _redeemCollateral(collateralToken, collateralTokenAmount, address(this), user);
-                }
-            } 
-        }
-
-        emit DSCProtocolCollapsed();
-    }   
 
     function _getTotalCollateralValueOfProtocol() internal view returns (uint256) {
         uint256 totalCollateralValueOfProtocol;

@@ -36,7 +36,7 @@ contract Handler is Test {
         vm.startPrank(msg.sender);
         ERC20Mock(collateralToken).mint(msg.sender, collateralAmount);
 
-        // giving approve to dscEngine to deposit tokens as collateral
+        // giving approve to dscEngine to deposit/transfer collateral tokens if required
         ERC20Mock(collateralToken).approve(
             address(dscEngine),
             collateralAmount
@@ -116,20 +116,35 @@ contract Handler is Test {
             return;
         }
 
-        vm.prank(sender);
+        vm.startPrank(sender);
         dscEngine.mintDSC(mintAmount);
+        dsc.approve(address(dscEngine), mintAmount); // dsc approval given to dscEngine by the user, incase burning of these tokens required. 
+        vm.stopPrank();
         mintDscCalls++;
     }
 
-    /**
-     * TODO This breaks our system and should be taken care off.
-    function updateEthUsdPriceFeed(uint96 newEthUsdPrice) public {
-        MockV3Aggregator ethUsdPriceFeed = MockV3Aggregator(dscEngine.getCollateralTokenPriceFeed(wEth));
 
+    // TODO This breaks our system and should be taken care off.
+    function updateEthUsdPriceFeed(uint96 newEthUsdPrice) public {
+        
+        // Arrange
+        MockV3Aggregator ethUsdPriceFeed = MockV3Aggregator(dscEngine.getCollateralTokenPriceFeed(wEth));
         int256 newPrice = int256(uint256(newEthUsdPrice));
         ethUsdPriceFeed.updateAnswer(newPrice);
+        
+
+        uint256 totalDscMinted = dsc.totalSupply();
+        uint256 wEthDeposited = ERC20Mock(wEth).balanceOf(address(dscEngine));
+        uint256 wBtcDeposited = ERC20Mock(wBtc).balanceOf(address(dscEngine));
+
+        uint256 totalCollateralValue = dscEngine.getUsdValue(wEth, wEthDeposited) + dscEngine.getUsdValue(wBtc, wBtcDeposited);
+
+        // Act
+        if(totalCollateralValue < totalDscMinted){
+            dscEngine.collapseDsc();
+        }
     }
-     */
+     
 
     ////////////////////
     /// Helper Func. ///
