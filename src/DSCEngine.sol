@@ -432,7 +432,6 @@ contract DSCEngine is ReentrancyGuard {
         }
 
         emit DSCProtocolCollapsed();
-        console.log('Users in the protocol: ', s_users.length);
         
         for(uint256 u = 0; u < s_users.length; u++){
             address user = s_users[u];
@@ -559,5 +558,9 @@ contract DSCEngine is ReentrancyGuard {
         address tokenAddress
     ) public view returns (uint256) {
         return s_collateralDeposited[msg.sender][tokenAddress];
+    }
+
+    function getDscMinted() public view returns(uint256) {
+        return s_DSCMinted[msg.sender];
     }
 }

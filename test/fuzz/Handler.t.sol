@@ -16,6 +16,29 @@ contract Handler is Test {
     uint256 public mintDscCalls = 0;
     address[] usersWithDepositedCollateral;
 
+    /*
+     * title giveApprovals()
+     * author Shivendra Singh
+     * @notice This modifier will be called right before the collapseDsc() function to give dscEngine approval over all tokens, both collateral tokens plus the minted DSC tokens. This is done to allow the dscEngine to burn all DSC tokens on behalf of all user followed by redeeming all users their deposited collateral.
+     * Point to note here is that approval of all DSC tokens by each user was initially done right after the user minted their DSC, but the ERC20._approve() does not add up the allowance a user gives to the spender (DscEngine) incase the user mints dsc multiple times. Hence it's converted into a modifier which will run right before the collapseDsc() call and give dscEngine approval over all tokens in one go! 
+    */
+    modifier giveApprovals() {
+        for(uint256 u = 0; u < usersWithDepositedCollateral.length; u++) {
+            vm.startPrank(usersWithDepositedCollateral[u]);
+            
+            uint256 wEthDeposited = dscEngine.getCollateralDeposited(wEth);
+            uint256 wBtcDeposited = dscEngine.getCollateralDeposited(wBtc);
+            uint256 dscMinted = dscEngine.getDscMinted();
+
+            ERC20Mock(wEth).approve(address(dscEngine), wEthDeposited);
+            ERC20Mock(wBtc).approve(address(dscEngine), wBtcDeposited);
+            dsc.approve(address(dscEngine), dscMinted);
+
+            vm.stopPrank();
+        }
+        _;
+    }
+
     constructor(DecentralizedStableCoin _dsc, DSCEngine _dscEngine) {
         dsc = _dsc;
         dscEngine = _dscEngine;
@@ -118,14 +141,14 @@ contract Handler is Test {
 
         vm.startPrank(sender);
         dscEngine.mintDSC(mintAmount);
-        dsc.approve(address(dscEngine), mintAmount); // dsc approval given to dscEngine by the user, incase burning of these tokens required. 
+        // dsc.approve(address(dscEngine), mintAmount);
         vm.stopPrank();
         mintDscCalls++;
     }
 
 
     // TODO This breaks our system and should be taken care off.
-    function updateEthUsdPriceFeed(uint96 newEthUsdPrice) public {
+    function updateEthUsdPriceFeed(uint96 newEthUsdPrice) public giveApprovals(){
         
         // Arrange
         MockV3Aggregator ethUsdPriceFeed = MockV3Aggregator(dscEngine.getCollateralTokenPriceFeed(wEth));
