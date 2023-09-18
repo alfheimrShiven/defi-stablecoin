@@ -17,13 +17,13 @@ This project is meant to be a stablecoin where users can deposit WETH and WBTC i
 2. #### Collateral:
    Users will be able to mint DSC only after depositing a collateral.
    1.  Collateral Type: Exogenous (Crypto): wETH, wBTC
-   2.  The protocol will be over-collaterised with a 200% margin i.e. to mint $100 worth of DSC, one has to deposit atleast $200 worth of collateral.
+   2.  The protocol will be over-collateralized with a 200% margin i.e. to mint $100 worth of DSC, one has to deposit atleast $200 worth of collateral.
    
 3. #### Liquidation: 
-   Incase a user becomes undercollaterised, they can be liquidated by other users. The liquidator can partially or completely liquidate a bad user and will earn 10% on the the debt he decides covers, for the undercollaterised user. This bonus is to the incentive for liquidators to keep the protocol healthy and over-collaterised.
+   Incase a user becomes undercollateralized, they can be liquidated by other users. The liquidator can partially or completely liquidate a bad user and will earn 10% on the the debt he decides covers, for the undercollateralized user. This bonus is to the incentive for liquidators to keep the protocol healthy and over-collateralized.
 
 4. #### Protocol Collapse: 
-   Incase the protocol becomes undercollaterised due to a drastic drop in value of the underlying collateral, a case where the total minted value is more than the total collateral value of the protocol, the protocol will trigger the `collapseDsc()` sequence, where in, it will auto-redeem all deposited collateral followed by burning all minted coins of all users and render itself collapsed!
+   Incase the protocol becomes under-collateralized due to a drastic drop in value of the underlying collateral, a case where the total minted value is more than the total collateral value of the protocol, the protocol will trigger the `collapseDsc()` sequence, where in, it will auto-redeem all deposited collateral followed by burning all minted coins of all users and render itself collapsed!
 
 
 # Getting Started
